@@ -1,0 +1,26 @@
+{
+    "materials": [
+      {
+        "name": "PLA",
+        "colors": [
+          { "name": "Black", "hex": "#000000", "priceKg": 80 },
+          { "name": "White", "hex": "#ffffff", "priceKg": 85 },
+          { "name": "Red",   "hex": "#ff0000", "priceKg": 100 }
+        ]
+      },
+      {
+        "name": "PETG",
+        "colors": [
+          { "name": "Black", "hex": "#000000", "priceKg": 100 }
+        ]
+      },
+      {
+        "name": "ABS",
+        "colors": [
+          { "name": "White", "hex": "#ffffff", "priceKg": 95 },
+          { "name": "Red",   "hex": "#ff0000", "priceKg": 100 }
+        ]
+      }
+    ]
+  }
+  

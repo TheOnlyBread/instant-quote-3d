@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Instant 3-D Print Quote</title>
+
+  <!-- Three.js via importmap -->
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+
+  <!-- Saudi Riyal icon font via CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@emran-alhaddad/saudi-riyal-font/index.css">
+
+  <style>
+    /* ─── RESET & BASE ───────────────────────────────────────────── */
+    * { box-sizing:border-box; margin:0; padding:0 }
+    html, body { height:100%; font-family:Inter,system-ui; background:#f7f9fc }
+    .container { max-width:1200px; margin:2rem auto; padding:0 1rem }
+    h2 { font-size:1.25rem; font-weight:600; color:#1e2228; margin-bottom:1rem }
+    .card { 
+      background:#fff; border:1px solid #e6e9ef; border-radius:8px; 
+      padding:1.5rem; box-shadow:0 4px 14px rgba(30,34,40,0.05);
+      display:flex; flex-direction:column;
+    }
+
+    /* ─── COLOR DROPDOWN CIRCLE ─────────────────────────────────── */
+    #color option {
+      padding-left:2em;
+      background-color:transparent!important;
+      background-repeat:no-repeat;
+      background-position:left center;
+      background-size:16px 16px;
+      color:#000;
+    }
+
+    /* ─── UPLOAD BOX ─────────────────────────────────────────────── */
+    #uploadSection { display:flex; justify-content:center; margin-bottom:2rem }
+    #drop {
+      border:3px dashed #c5c9d3; border-radius:8px; padding:3rem;
+      text-align:center; color:#6b6f76; cursor:pointer;
+      transition:background .2s,border-color .2s,color .2s;
+    }
+    #drop.drag { background:#edf1fb; border-color:#5056e5; color:#5056e5 }
+    #dropDesc { font-size:1.1rem }
+
+    /* ─── GRID LAYOUT ───────────────────────────────────────────── */
+    .quote-grid { display:grid; grid-template-columns:1fr 1fr; gap:2rem }
+
+    /* ─── 3D VIEWER ─────────────────────────────────────────────── */
+    #viewer {
+      position:relative;
+      width:100%;
+      height:300px;       /* fixed height */
+      max-height:300px;
+      background:#f1f3f7;
+      border:1px solid #e0e3e9;
+      border-radius:6px;
+      overflow:hidden;
+    }
+    #viewer canvas { position:absolute; inset:0; width:100%!important; height:100%!important; }
+    #overlay {
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(247,249,252,0.85);
+      font-weight:600; color:#5056e5; visibility:hidden;
+    }
+
+    /* ─── CHANGE FILE BUTTON ────────────────────────────────────── */
+    #change {
+      display:inline-block; margin-top:1rem; margin-left:auto;
+      padding:.5rem 1rem; background:#5056e5; color:#fff!important;
+      border-radius:4px; font-size:.9rem; text-decoration:none;
+      transition:background .2s;
+    }
+    #change:hover { background:#3f46c2 }
+
+    /* ─── FILE DETAILS & LANGUAGE ───────────────────────────────── */
+    .heading-switch { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem }
+    .lang-switch { display:flex; align-items:center; gap:.5rem }
+    .lang-switch span { font-size:.95rem; color:#4a4e57; cursor:pointer }
+    .lang-switch span.active { color:#5056e5; font-weight:600 }
+    .lang-switch input[type=checkbox] {
+      appearance:none; width:40px; height:20px; background:#e6e9ef;
+      border-radius:10px; position:relative; cursor:pointer;
+    }
+    .lang-switch input::after {
+      content:""; position:absolute; top:2px; left:2px;
+      width:16px; height:16px; background:#fff; border-radius:50%;
+      transition:transform .2s;
+    }
+    .lang-switch input:checked { background:#5056e5 }
+    .lang-switch input:checked::after { transform:translateX(20px) }
+
+    .file-details {
+      border-top:1px solid #e6e9ef; border-bottom:1px solid #e6e9ef; margin-bottom:1.5rem;
+    }
+    .file-details dt, .file-details dd {
+      padding:.75rem 0; font-size:.95rem;
+    }
+    .file-details dt { color:#6b6f76 }
+    .file-details dd { color:#1e2228; text-align:right }
+    .file-details dt+dd { border-top:1px solid #e6e9ef }
+
+    /* ─── FORM CONTROLS & SLIDER ───────────────────────────────── */
+    .form-group { margin-bottom:1.25rem }
+    .form-group label { display:block; margin-bottom:.5rem; color:#4a4e57; font-size:.95rem }
+    .form-group select, .form-group input[type=number] {
+      width:100%; padding:.5rem; border:1px solid #c5c9d3; border-radius:6px;
+      font-size:1rem; background:#fff; color:#1e2228;
+    }
+    input[type=range] {
+      -webkit-appearance:none; width:100%; height:8px; border-radius:4px;
+      background:#e5e7eb; outline:none; margin-top:.5rem;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+      background:#6366f1; border:3px solid #fff; margin-top:-4px;
+    }
+
+    /* ─── ADVANCED SETTINGS TOGGLE ─────────────────────────────── */
+    .toggle-group { display:flex; align-items:center; margin-bottom:1.25rem }
+    .toggle-group input[type=checkbox] {
+      appearance:none; width:40px; height:20px; background:#e6e9ef;
+      border-radius:10px; position:relative; cursor:pointer;
+    }
+    .toggle-group input::after {
+      content:""; position:absolute; top:2px; left:2px;
+      width:16px; height:16px; background:#fff; border-radius:50%;
+      transition:transform .2s;
+    }
+    .toggle-group input:checked { background:#5056e5 }
+    .toggle-group input:checked::after { transform:translateX(20px) }
+    .toggle-group label { font-size:.95rem; color:#4a4e57; cursor:pointer }
+
+    /* ─── BUTTON & QUOTE RESULT ────────────────────────────────── */
+    .btn-quote {
+      display:block; width:100%; padding:.75rem; background:#5056e5; color:#fff;
+      border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer;
+      transition:background .2s;
+    }
+    .btn-quote:hover { background:#3f46c2 }
+    .quote-result { margin-top:1.5rem; font-size:1rem; color:#1e2228 }
+    .quote-result strong { display:block; font-size:1.25rem; margin-bottom:.5rem }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- UPLOAD BOX -->
+    <div id="uploadSection">
+      <div id="drop">
+        <p id="dropDesc"><strong>Drop your STL/OBJ here</strong></p>
+        <input id="file" type="file" accept=".stl,.obj" hidden>
+      </div>
+    </div>
+
+    <!-- QUOTE INTERFACE -->
+    <div id="quoteSection" style="display:none">
+      <div class="quote-grid">
+
+        <!-- 3D VIEWER CARD -->
+        <div class="card">
+          <h2 id="label-3dmodel">3D Model</h2>
+          <div id="viewer"><div id="overlay">Generating preview…</div></div>
+          <a id="change" href="#">Change File</a>
+        </div>
+
+        <!-- DETAILS & SETTINGS CARD -->
+        <div class="card">
+          <div class="heading-switch">
+            <h2 id="label-file-details">File Details</h2>
+            <div class="lang-switch">
+              <span id="langEn" class="active">EN</span>
+              <input type="checkbox" id="langToggle">
+              <span id="langAr">AR</span>
+            </div>
+          </div>
+          <dl class="file-details" id="details"></dl>
+
+          <h2 id="label-print-settings">Print Settings</h2>
+          <div class="form-group">
+            <label for="material" id="label-material">Material</label>
+            <select id="material"></select>
+          </div>
+          <div class="form-group">
+            <label for="color" id="label-color">Color</label>
+            <select id="color"></select>
+          </div>
+          <div class="form-group">
+            <label id="label-fill-density">
+              <span id="fillDensityText">Fill Density</span> (<span id="fillVal">10</span>%)
+            </label>
+            <input id="fill" type="range" min="1" max="100" value="10">
+          </div>
+          <div class="toggle-group">
+            <input type="checkbox" id="viewAdv">
+            <label for="viewAdv" id="label-view-advanced">View Advanced Settings</label>
+          </div>
+          <div id="advSettings" style="display:none">
+            <div class="form-group">
+              <label for="layerHeight" id="label-layer-height">Layer Height (mm)</label>
+              <select id="layerHeight">
+                <option value="0.1">0.1mm (Fine)</option>
+                <option value="0.15">0.15mm</option>
+                <option value="0.2" selected>0.2mm (Normal)</option>
+                <option value="0.3">0.3mm (Fast)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="supports" id="label-supports">Supports</label>
+              <select id="supports">
+                <option value="0">Disabled</option>
+                <option value="1">Enabled</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="wallCount" id="label-wall-count">Wall Count</label>
+              <input id="wallCount" type="number" min="1" max="10" value="3">
+            </div>
+            <div class="form-group">
+              <label><input id="ironing" type="checkbox"> <span id="ironingText">Ironing</span></label>
+            </div>
+          </div>
+
+          <button id="quote" class="btn-quote">Get Quote</button>
+          <div id="quoteCard" class="quote-result" style="display:none"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import * as THREE        from 'three';
+    import { STLLoader }     from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/STLLoader.js';
+    import { OBJLoader }     from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    const $ = id => document.getElementById(id);
+
+    const drop        = $('drop'),
+          fileInp     = $('file'),
+          upload      = $('uploadSection'),
+          quoteBox    = $('quoteSection'),
+          viewer      = $('viewer'),
+          overlay     = $('overlay'),
+          details     = $('details'),
+          change      = $('change'),
+          fill        = $('fill'),
+          viewAdv     = $('viewAdv'),
+          advDiv      = $('advSettings'),
+          layerH      = $('layerHeight'),
+          supportsEl  = $('supports'),
+          wallCountEl = $('wallCount'),
+          ironingEl   = $('ironing'),
+          quoteBtn    = $('quote'),
+          quoteCard   = $('quoteCard'),
+          langToggle  = $('langToggle'),
+          langEn      = $('langEn'),
+          langAr      = $('langAr'),
+          materialEl  = $('material'),
+          colorEl     = $('color');
+
+    let settings       = { materials: [] },
+        currentColors  = [],
+        lastDetails    = null,
+        currentLang    = 'en';
+
+    const translations = {
+      en:{ drop_desc:"Drop your STL/OBJ here", model:"3D Model", fileDetails:"File Details", printSettings:"Print Settings",
+           fileName:"File Name", height:"Height", length:"Length", width:"Width",
+           material:"Material", color:"Color", fillDensity:"Fill Density",
+           viewAdvance:"View Advanced Settings", layerHeight:"Layer Height (mm)",
+           supports:"Supports", wallCount:"Wall Count", ironing:"Ironing",
+           changeFile:"Change File", getQuote:"Get Quote" },
+      ar:{ drop_desc:"أسقط ملف STL/OBJ هنا", model:"النموذج ثلاثي الأبعاد", fileDetails:"تفاصيل الملف", printSettings:"إعدادات الطباعة",
+           fileName:"اسم الملف", height:"الارتفاع", length:"الطول", width:"العرض",
+           material:"المادة", color:"اللون", fillDensity:"نسبة التعبئة",
+           viewAdvance:"عرض الإعدادات المتقدمة", layerHeight:"ارتفاع الطبقة (مم)",
+           supports:"الدعامات", wallCount:"عدد الجدران", ironing:"الكي",
+           changeFile:"تغيير الملف", getQuote:"احصل على السعر" }
+    };
+
+    function setLanguage(lang){
+      currentLang=lang; const t=translations[lang];
+      document.documentElement.lang=lang;
+      document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+      $('dropDesc').innerHTML=`<strong>${t.drop_desc}</strong>`;
+      $('label-3dmodel').textContent       = t.model;
+      $('label-file-details').textContent   = t.fileDetails;
+      $('label-print-settings').textContent = t.printSettings;
+      $('label-material').textContent       = t.material;
+      $('label-color').textContent          = t.color;
+      $('label-fill-density').innerHTML      = `${t.fillDensity} (<span id="fillVal">${fill.value}</span>%)`;
+      $('label-view-advanced').textContent   = t.viewAdvance;
+      $('label-layer-height').textContent    = t.layerHeight;
+      $('label-supports').textContent        = t.supports;
+      $('label-wall-count').textContent      = t.wallCount;
+      $('ironingText').textContent           = t.ironing;
+      $('change').textContent                = t.changeFile;
+      quoteBtn.textContent                   = t.getQuote;
+      langEn.classList.toggle('active',lang==='en');
+      langAr.classList.toggle('active',lang==='ar');
+      renderDetails();
+    }
+    langToggle.onchange=()=>setLanguage(langToggle.checked?'ar':'en');
+    setLanguage('en');
+
+    function populateMaterials(){
+      materialEl.innerHTML=''; 
+      settings.materials.forEach(m=>materialEl.add(new Option(m.name,m.name)));
+    }
+    function populateColors(){
+      colorEl.innerHTML='';
+      currentColors.forEach(c=>{
+        const opt=new Option(c.name,c.name);
+        if(c.hex.toLowerCase()==='#ffffff'){
+          opt.style.backgroundImage='radial-gradient(circle 8px at left center, #fff 8px, #000 8px, transparent 8px)';
+        } else {
+          opt.style.backgroundImage=`radial-gradient(circle 8px at left center, ${c.hex} 8px, transparent 8px)`;
+        }
+        opt.dataset.hex=c.hex; opt.dataset.price=c.priceKg;
+        colorEl.add(opt);
+      });
+    }
+    materialEl.onchange=()=>{
+      const mat=settings.materials.find(m=>m.name===materialEl.value);
+      currentColors=mat?mat.colors:[]; 
+      populateColors();
+      colorEl.value=currentColors[0]?.name||'';
+      colorEl.onchange();
+    };
+    fetch('/static/settings.json')
+      .then(r=>r.json())
+      .then(data=>{settings=data;populateMaterials();materialEl.value=settings.materials[0]?.name;materialEl.onchange();});
+
+    function renderDetails(){
+      if(!lastDetails) return;
+      const {name,size}=lastDetails, t=translations[currentLang];
+      details.innerHTML=`
+        <dt>${t.fileName}</dt><dd>${name}</dd>
+        <dt>${t.height}</dt><dd>${size.y.toFixed(2)} mm</dd>
+        <dt>${t.length}</dt><dd>${size.z.toFixed(2)} mm</dd>
+        <dt>${t.width}</dt><dd>${size.x.toFixed(2)} mm</dd>`;
+    }
+
+    // drag & drop + change
+    drop.onclick=()=>fileInp.click();
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
+    ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
+    drop.addEventListener('drop',e=>{e.preventDefault();fileInp.files=e.dataTransfer.files;loadPreview()});
+    fileInp.onchange=loadPreview;
+    change.onclick=e=>{e.preventDefault();viewer.replaceChildren();scene=null;quoteBox.style.display='none';upload.style.display=''};
+
+    fill.oninput=()=>$('fillVal').textContent=fill.value;
+    viewAdv.onchange=()=>advDiv.style.display=viewAdv.checked?'block':'none';
+    colorEl.onchange=()=>{
+      const hex=colorEl.selectedOptions[0].dataset.hex;
+      if(scene)scene.traverse(o=>o.isMesh&&o.userData.model&&o.material.color.set(hex));
+      renderer.render(scene,camera);
+    };
+
+    // Three.js + preview + quote logic 
+    let renderer, scene, camera, controls, raf, origFile;
+    function initScene(){
+      renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(viewer.clientWidth,viewer.clientHeight);
+      viewer.appendChild(renderer.domElement);
+
+      scene=new THREE.Scene();
+      camera=new THREE.PerspectiveCamera(45,viewer.clientWidth/viewer.clientHeight,0.1,1e5);
+
+      controls=new OrbitControls(camera,renderer.domElement);
+      controls.enableDamping=true; controls.dampingFactor=0.08;
+      controls.addEventListener('start',()=>{if(!raf)loop()});
+      controls.addEventListener('end', ()=>{cancelAnimationFrame(raf);raf=null});
+
+      scene.add(new THREE.HemisphereLight(0xffffff,0x444444,0.7));
+      const dir=new THREE.DirectionalLight(0xffffff,0.9);
+      dir.position.set(60,80,60);scene.add(dir);
+      scene.add(new THREE.GridHelper(1000,40,0xccc,0xdedede));
+    }
+    function loop(){controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(loop)}
+
+    async function loadPreview(){
+      origFile=fileInp.files[0];if(!origFile)return;
+      upload.style.display='none';quoteBox.style.display='';
+      if(!scene) initScene();
+      scene.children.filter(o=>o.userData?.model).forEach(o=>scene.remove(o));
+      overlay.style.visibility='visible';
+
+      const fd=new FormData();fd.append('file',origFile);
+      const res=await fetch('/api/preview',{method:'POST',body:fd});
+      const buf=await res.arrayBuffer();
+
+      const isOBJ=origFile.name.toLowerCase().endsWith('.obj');
+      const loader=isOBJ?new OBJLoader():new STLLoader();
+      const geom=isOBJ?loader.parse(new TextDecoder().decode(buf)):loader.parse(buf);
+
+      const hex=colorEl.selectedOptions[0].dataset.hex;
+      const mat=new THREE.MeshStandardMaterial({color:parseInt(hex.replace('#','0x'),16),roughness:0.75});
+
+      let model;
+      if(geom.isBufferGeometry||geom.isGeometry){
+        model=new THREE.Mesh(geom,mat);
+      } else {
+        model=geom;model.traverse(c=>{if(c.isMesh)c.material=mat});
+      }
+      model.rotation.set(Math.PI/2,Math.PI,0);
+      model.userData.model=true;scene.add(model);
+
+      const box=new THREE.Box3().setFromObject(model);
+      const size=box.getSize(new THREE.Vector3()),mx=Math.max(size.x,size.y,size.z);
+      model.position.y-=box.min.y;
+      camera.near=0.1;camera.far=mx*20;camera.updateProjectionMatrix();
+      camera.position.set(0,size.y*0.6,mx*2.2);
+      controls.target.set(0,size.y/2,0);controls.update();
+      scene.add(new THREE.AxesHelper(mx*0.5));
+
+      renderer.render(scene,camera);
+      overlay.style.visibility='hidden';
+
+      lastDetails={name:origFile.name,size};
+      renderDetails();
+    }
+
+    quoteBtn.onclick=async()=>{
+      if(!origFile) return;
+      quoteBtn.disabled=true;quoteBtn.textContent=translations[currentLang].getQuote+'…';
+
+      const priceKg=+colorEl.selectedOptions[0].dataset.price;
+      const fd=new FormData();
+      fd.append('file',origFile);
+      fd.append('fill_ratio',fill.value/100);
+      fd.append('layer_height',layerH.value);
+      fd.append('supports',supportsEl.value);
+      fd.append('wall_count',wallCountEl.value);
+      fd.append('ironing',ironingEl.checked?'1':'0');
+      fd.append('material',materialEl.value);
+      fd.append('color',colorEl.value);
+      fd.append('price_per_kg',priceKg);
+
+      const r=await fetch('/api/quote',{method:'POST',body:fd});
+      const d=await r.json();
+
+      if(r.ok){
+        quoteCard.style.display='';
+        const icon=`<span class="icon-saudi_riyal"></span>`;
+        const pct=Math.round(d.fill_ratio*100),hrs=d.time_h.toFixed(2);
+        const detailTxt=currentLang==='ar'
+          ?`${d.weight_g} غ @ ${pct}٪ • ${hrs} س`
+          :`${d.weight_g} g @ ${pct}% • ${hrs} h`;
+        quoteCard.innerHTML=`<strong>${icon}${d.total}</strong><br>${detailTxt}`;
+      } else {
+        alert(d.error||r.statusText);
+      }
+      quoteBtn.disabled=false;
+      quoteBtn.textContent=translations[currentLang].getQuote;
+    };
+  </script>
+</body>
+</html>

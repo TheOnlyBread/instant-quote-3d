@@ -1,0 +1,5 @@
+Flask>=2.0
+trimesh>=3.21.0
+numpy>=1.21
+open3d>=0.19.1
+gunicorn>=20.1.0
